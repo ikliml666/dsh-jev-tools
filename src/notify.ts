@@ -157,11 +157,12 @@ export function createDegradeNoticeListener (deps: DegradeNoticeDeps): PreStepLi
     const params: Record<string, string> = reason === 'no-key'
       ? { ref: settings.apiKeyEnv }
       : { url: settings.baseUrl }
+    const text = t(lang, `notice.${reason}` as MessageKey, params)
     const notice = {
       id: deps.newMessageId(),
       role: 'user',
-      content: [{ type: 'text', text: t(lang, `notice.${reason}` as MessageKey, params) }],
-      source: noticeSource(reason),
+      content: [{ type: 'text', text }],
+      source: noticeSource(text),
     }
 
     // Append only: the delegated messages are spread back, so this can never

@@ -34,6 +34,7 @@
 
 - **版本号对齐宿主。** 本仓库是从 `HorusJiang/dsh-jev-tools` fork 的自用适配版，版本号改为 `0.2.2-rc.2`，与它编译、验证的 DSH 源码检出（`dsh-v0.2.2-rc.2`）同名：装到哪个宿主上一眼可辨。
 - **兼容声明加上 0.2.2-rc.2。** `dsh.compatibility.dshReleases` 与 `dshWorkshop.compatibility.dshVersions` 都追加 `0.2.2-rc.2`，插件页与 Workshop 清单不再把它当作未验证的旧版本。
+- **注入消息改用框架标准的 `snapshot` 来源形态。** 此前通知的 source 是 `{ kind: 'plugin:dsh-jev-tools', form: 'notice' }`，会话里显示成 `上下文注入 · plugin:dsh-jev-tools · implement（原始概率 0.46，未标定）`——一个 `plugin:` 前缀加半截摘要，看起来像内部日志而不是上下文注入。现在 `kind` 用插件名本身、`form` 用 `snapshot` 并带 `sections`，与 `@deepseek-ai/dsh-frontend-design` 的 `agent/pre-step` 提醒一致，折叠行显示为 `上下文注入 · dsh-jev-tools`，展开体仍是原来的提醒正文。
 
 ### Fixed
 

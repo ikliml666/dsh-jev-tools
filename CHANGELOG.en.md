@@ -35,6 +35,7 @@ Published on npm: `npm i dsh-jev-tools`. It can also be installed from the repos
 
 - **The version now follows the host.** This repository is a self-maintained adaptation of `HorusJiang/dsh-jev-tools`; its version is now `0.2.2-rc.2`, the same name as the DSH checkout it is built and verified against (`dsh-v0.2.2-rc.2`), so which host a build targets is visible at a glance.
 - **The compatibility declaration gains 0.2.2-rc.2.** Both `dsh.compatibility.dshReleases` and `dshWorkshop.compatibility.dshVersions` now list `0.2.2-rc.2`, so the Plugins page and the Workshop manifest no longer treat it as an unverified older release.
+- **Injected messages now use the framework's standard `snapshot` source form.** The source used to be `{ kind: 'plugin:dsh-jev-tools', form: 'notice' }`, which the conversation rendered as `Context injection · plugin:dsh-jev-tools · implement (raw probability 0.46, uncalibrated)` — a `plugin:` prefix plus half a summary, reading like an internal log line rather than a context injection. `kind` is now the plugin's own name, `form` is `snapshot` with `sections`, matching `@deepseek-ai/dsh-frontend-design`'s `agent/pre-step` reminder, so the collapsed row reads `Context injection · dsh-jev-tools` and expands to the same notice text as before.
 
 ### Fixed
 

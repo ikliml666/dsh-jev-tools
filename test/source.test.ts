@@ -60,17 +60,17 @@ function retiredWrapperLines (text: string): string[] {
 
 test('the source kind names this plugin, and never the retired wrapper', () => {
   assert.equal(PLUGIN_ID, 'dsh-jev-tools')
-  // The harness's v3->v4 migration records an unknown third-party producer as
-  // `plugin:<name>`; using the same value keeps a session's historical notices
-  // and the ones written today under one identity.
-  assert.equal(PLUGIN_SOURCE_KIND, 'plugin:dsh-jev-tools')
+  // The producer's own name, with no `plugin:` prefix: that is the shape the
+  // harness's own context producers use, and the one the chat row renders
+  // beside the context-injection label.
+  assert.equal(PLUGIN_SOURCE_KIND, 'dsh-jev-tools')
 })
 
 test('a notice carries its kind, the notice form, and its one-line summary', () => {
   assert.deepEqual(noticeSource('read: 5000 → 3000 tokens'), {
-    kind: 'plugin:dsh-jev-tools',
-    form: 'notice',
-    summary: 'read: 5000 → 3000 tokens',
+    kind: 'dsh-jev-tools',
+    form: 'snapshot',
+    sections: [{ name: 'dsh-jev-tools', text: 'read: 5000 → 3000 tokens' }],
   })
 })
 

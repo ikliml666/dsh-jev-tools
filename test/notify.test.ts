@@ -96,8 +96,8 @@ test('the notice never replaces what the step already carried', async () => {
   assert.equal(decision.messages.length, 2)
   assert.deepEqual(decision.messages[0], { id: 'm1' })
   const notice = decision.messages[1] as { source?: { kind?: string, form?: string } }
-  assert.equal(notice.source?.kind, 'plugin:dsh-jev-tools')
-  assert.equal(notice.source?.form, 'notice')
+  assert.equal(notice.source?.kind, 'dsh-jev-tools')
+  assert.equal(notice.source?.form, 'snapshot')
 })
 
 test('a rejected step is passed through untouched', async () => {

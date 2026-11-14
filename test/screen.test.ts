@@ -164,8 +164,8 @@ test('the warning says what to do, in the conversation\u2019s language', () => {
     source: { kind: string, form: string },
     content: { text: string }[],
   }
-  assert.equal(english.source.kind, 'plugin:dsh-jev-tools')
-  assert.equal(english.source.form, 'notice')
+  assert.equal(english.source.kind, 'dsh-jev-tools')
+  assert.equal(english.source.form, 'snapshot')
   assert.match(english.content[0]!.text, /instructions addressed to an AI/)
   assert.match(english.content[0]!.text, /0\.93/)
   // The mitigation is the instruction to the reading agent, and it must be the
@@ -192,7 +192,7 @@ test('screening rides along with pruning in one request', async () => {
 
   assert.equal(decision.kind, 'accept')
   // Both notices: pruning says what was kept, screening says how to read it.
-  assert.deepEqual(forms(decision), ['notice', 'notice'])
+  assert.deepEqual(forms(decision), ['snapshot', 'snapshot'])
   assert.match(texts(decision), /Pruned/)
   assert.match(texts(decision), /instructions addressed to an AI/)
 })
@@ -212,7 +212,7 @@ test('the warning survives pruning declining the same payload', async () => {
   if (decision.kind !== 'accept') return
   assert.deepEqual(decision.content, content, 'the content must be untouched')
   assert.match(texts(decision), /instructions addressed to an AI/)
-  assert.equal(forms(decision).includes('notice'), true)
+  assert.equal(forms(decision).includes('snapshot'), true)
 
   const features = ledger.entries().map(entry => `${entry.feature}:${entry.outcome}`)
   assert.deepEqual(features, ['screen:judged', 'prune:skipped'])
