@@ -10,6 +10,7 @@
 
 | 版本 | 日期 | 状态 | 摘要 |
 |---|---|---|---|
+| `0.2.2-rc.2` | 2026-11-14 | **自用 fork** | 对齐 DSH 0.2.2-rc.2：宿主契约逐项复核，兼容声明与版本号随宿主走。 |
 | `0.1.13` | 2026-09-30 | **已发布** | 插件图标：清单判定 → 决策路径。 |
 | `0.1.12` | 2026-09-30 | **已发布** | 设置卡片终于能读能写：挂载行 id、`.volatile()` 标记、`configForms` 通道、幂等解析，四处一起修好。 |
 | `0.1.11` | 2026-09-30 | **已发布** | 判定端点与模型终于能在配置卡片里改：这两个设置 0.1.6 就有了，卡片一直没画出来。 |
@@ -26,6 +27,18 @@
 | `0.1.0` | 2026-09-20 | **已发布** | 首个版本，包含下面描述的全部内容。 |
 
 已发布到 npm：`npm i dsh-jev-tools`。也可以直接从仓库检出目录安装。
+
+## [0.2.2-rc.2] — 2026-11-14
+
+### Changed
+
+- **版本号对齐宿主。** 本仓库是从 `HorusJiang/dsh-jev-tools` fork 的自用适配版，版本号改为 `0.2.2-rc.2`，与它编译、验证的 DSH 源码检出（`dsh-v0.2.2-rc.2`）同名：装到哪个宿主上一眼可辨。
+- **兼容声明加上 0.2.2-rc.2。** `dsh.compatibility.dshReleases` 与 `dshWorkshop.compatibility.dshVersions` 都追加 `0.2.2-rc.2`，插件页与 Workshop 清单不再把它当作未验证的旧版本。
+
+### Fixed
+
+- **0.2.2-rc.2 上的挂载与注册已实测。** 在 0.2.2-rc.2 源码检出上以隔离 profile 挂载本插件，`jev_ask`、`jev_gate` 两个工具与 `/jev-status` 命令都在，台账存储域 `dsh_jev_tools` 正常打开；逐项复核的宿主契约（`agent/pre-step` 的 `agent` 注入、`tools/post-execute` 的 `accept.content`、`tools.register`、`commands.register`、`skills.list`、`storageDomain.open`）与 0.2.0-rc.2 一致，未发现破坏性变更。
+- **恢复加载：缺的是挂载行。** 插件此前"装了但什么都没跑"，原因是 profile 的 `dsh.profile.bundles` 里没有它——包在 `node_modules` 里、配置写在 `cordis.patch.yml` 里，但没有 bundle 行就没有任何代码被加载。恢复方式是把包名加回该列表，并把依赖改成本地 `link:` 指向本仓库检出，之后的改动才会真的被宿主加载。
 
 ## [0.1.13] — 2026-09-30
 

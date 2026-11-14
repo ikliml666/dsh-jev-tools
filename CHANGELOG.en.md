@@ -11,6 +11,7 @@ This project is pre-1.0: a minor version may contain a breaking change, and the
 
 | Version | Date | State | Summary |
 |---|---|---|---|
+| `0.2.2-rc.2` | 2026-11-14 | **local fork** | Aligned with DSH 0.2.2-rc.2: host contracts re-checked one by one, compatibility declaration and version follow the host. |
 | `0.1.13` | 2026-09-30 | **published** | The plugin icon: a checklist that becomes a decision path. |
 | `0.1.12` | 2026-09-30 | **published** | The settings card finally reads and writes its own settings: mount row id, `.volatile()` markers, the `configForms` seam, and idempotent resolution, fixed together. |
 | `0.1.11` | 2026-09-30 | **published** | The judgment endpoint and model are finally editable in the configuration card: both settings have existed since 0.1.6, and the card had never drawn them. |
@@ -27,6 +28,18 @@ This project is pre-1.0: a minor version may contain a breaking change, and the
 | `0.1.0` | 2026-09-20 | **published** | The first release, containing everything described below. |
 
 Published on npm: `npm i dsh-jev-tools`. It can also be installed from the repository checkout.
+
+## [0.2.2-rc.2] — 2026-11-14
+
+### Changed
+
+- **The version now follows the host.** This repository is a self-maintained adaptation of `HorusJiang/dsh-jev-tools`; its version is now `0.2.2-rc.2`, the same name as the DSH checkout it is built and verified against (`dsh-v0.2.2-rc.2`), so which host a build targets is visible at a glance.
+- **The compatibility declaration gains 0.2.2-rc.2.** Both `dsh.compatibility.dshReleases` and `dshWorkshop.compatibility.dshVersions` now list `0.2.2-rc.2`, so the Plugins page and the Workshop manifest no longer treat it as an unverified older release.
+
+### Fixed
+
+- **Mounting and registration were measured on 0.2.2-rc.2.** Mounted in an isolated profile on the 0.2.2-rc.2 source checkout, both tools (`jev_ask`, `jev_gate`) and the `/jev-status` command are present, and the ledger storage domain `dsh_jev_tools` opens; every host contract this plugin consumes (`agent/pre-step`'s injected `agent`, `tools/post-execute`'s `accept.content`, `tools.register`, `commands.register`, `skills.list`, `storageDomain.open`) is unchanged from 0.2.0-rc.2, with no breaking change found.
+- **Loading is restored: the missing piece was the mount row.** The plugin used to be installed yet run nothing, because the profile's `dsh.profile.bundles` did not list it — the package sat in `node_modules` and the config in `cordis.patch.yml`, but without a bundle row no code was loaded at all. Restoring it means adding the package name back to that list and pointing the dependency at a local `link:` to this checkout, so later edits actually reach the host.
 
 ## [0.1.13] — 2026-09-30
 
