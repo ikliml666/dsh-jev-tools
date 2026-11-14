@@ -34,8 +34,10 @@ test('defaults match the S0 measurements', () => {
   // Measured: 2000 keeps 31.9% of the achievable saving while avoiding the
   // marginal band where a judgment costs 300ms to save ~1000 tokens.
   assert.equal(s.prune.minTokens, 2000)
-  // Measured: uncapped worst turn was 27 triggers (about 8.1s); 3 caps it at 0.9s.
-  assert.equal(s.prune.perTurnLimit, 3)
+  // Measured: uncapped worst turn was 27 triggers (about 8.1s). Four caps it
+  // at ~1.2s, and the fourth slot is what skill suggestion claims before the
+  // pruner reaches the same allowance.
+  assert.equal(s.prune.perTurnLimit, 4)
   assert.equal(s.prune.headLines, 40)
   assert.equal(s.prune.tailLines, 40)
   assert.equal(s.prune.keepHigh, 0.5)
@@ -61,7 +63,7 @@ test('a composition entry overrides defaults without dropping the others', () =>
   assert.equal(s.enabled, false)
   assert.equal(s.prune.minTokens, 5000)
   // Nested defaults survive a partial nested override.
-  assert.equal(s.prune.perTurnLimit, 3)
+  assert.equal(s.prune.perTurnLimit, 4)
   assert.equal(s.suggest.minCatalogSize, 15)
 })
 

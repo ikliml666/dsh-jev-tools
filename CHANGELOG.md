@@ -36,10 +36,19 @@
 - **兼容声明加上 0.2.2-rc.2。** `dsh.compatibility.dshReleases` 与 `dshWorkshop.compatibility.dshVersions` 都追加 `0.2.2-rc.2`，插件页与 Workshop 清单不再把它当作未验证的旧版本。
 - **注入消息改用框架标准的 `snapshot` 来源形态。** 此前通知的 source 是 `{ kind: 'plugin:dsh-jev-tools', form: 'notice' }`，会话里显示成 `上下文注入 · plugin:dsh-jev-tools · implement（原始概率 0.46，未标定）`——一个 `plugin:` 前缀加半截摘要，看起来像内部日志而不是上下文注入。现在 `kind` 用插件名本身、`form` 用 `snapshot` 并带 `sections`，与 `@deepseek-ai/dsh-frontend-design` 的 `agent/pre-step` 提醒一致，折叠行显示为 `上下文注入 · dsh-jev-tools`，展开体仍是原来的提醒正文。
 
+- **`prune.perTurnLimit` 默认从 3 提到 4。** 这个每 turn 额度由 prune / screen / suggest 三者共享，
+  而技能推荐现在要在这轮里先占一格：它每轮至多判定一次，占掉第 4 格后剪枝仍保有原来的 3 次。
+  上限的成本从最坏 0.9 秒升到约 1.2 秒。
+
 ### Fixed
 
 - **0.2.2-rc.2 上的挂载与注册已实测。** 在 0.2.2-rc.2 源码检出上以隔离 profile 挂载本插件，`jev_ask`、`jev_gate` 两个工具与 `/jev-status` 命令都在，台账存储域 `dsh_jev_tools` 正常打开；逐项复核的宿主契约（`agent/pre-step` 的 `agent` 注入、`tools/post-execute` 的 `accept.content`、`tools.register`、`commands.register`、`skills.list`、`storageDomain.open`）与 0.2.0-rc.2 一致，未发现破坏性变更。
 - **恢复加载：缺的是挂载行。** 插件此前"装了但什么都没跑"，原因是 profile 的 `dsh.profile.bundles` 里没有它——包在 `node_modules` 里、配置写在 `cordis.patch.yml` 里，但没有 bundle 行就没有任何代码被加载。恢复方式是把包名加回该列表，并把依赖改成本地 `link:` 指向本仓库检出，之后的改动才会真的被宿主加载。
+
+- **技能推荐此前拿不到每轮额度，几乎从不触发。** `agent/pre-step` 的监听器是嵌套的：主体先跑、
+  `next()` 深处才执行剪枝，而额度申请写在 `next()` 之后——剪枝一轮连花 3 次后，技能推荐只剩
+  `budget-turn`。现在额度在委托给下游之前就申请；判定本身仍在知道这一步会被执行之后进行，
+  被别的监听器拒绝的步照样不记账、不发请求，只是白占一格。
 
 ## [0.1.13] — 2026-09-30
 

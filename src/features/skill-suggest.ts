@@ -45,7 +45,7 @@ import type { Budget } from '../budget.js'
 import type { Ledger } from '../ledger.js'
 import type { DegradeNotices } from '../notify.js'
 import type {
-  CredentialsService, PreStepDecision, PreStepListener, SkillsService,
+  CredentialsService, PreStepDecision, PreStepListener, SkillSummaryLike, SkillsService,
 } from '../host.js'
 import { noticeSource } from '../source.js'
 
@@ -90,6 +90,27 @@ function trimOldest<V> (map: Map<string, V>): void {
   }
 }
 
+/** What the pre-checks decided about one step, before it is known to run. */
+type Gate =
+  | {
+    readonly kind: 'judge'
+    readonly task: string
+    readonly catalog: readonly SkillSummaryLike[]
+    readonly apiKey: string
+    readonly model: string
+    readonly minConfidence: number
+  }
+  /** The turn was already judged; its own row already says what happened. */
+  | { readonly kind: 'latched' }
+  | {
+    readonly kind: 'skip'
+    readonly reason: SkipReason
+    /** A structural failure worth one notice, rather than a per-turn decline. */
+    readonly notify?: boolean
+    /** Host-log line, written only when this reason was actually recorded. */
+    readonly log?: string
+  }
+
 /** Dependencies the listener needs. */
 export interface SkillSuggestDeps {
   readonly settings: () => JevSettings
@@ -130,13 +151,6 @@ export function createSkillSuggestListener (deps: SkillSuggestDeps): PreStepList
   let warnedNoRegistry = false
 
   return async (payload, next): Promise<PreStepDecision> => {
-    // Delegate first. A later listener keeps the last word on whether the step
-    // runs, and a step that is about to be rejected costs no API request.
-    const downstream = await next()
-    // A rejected step is not this capability declining: the step itself is not
-    // going to run, so there is nothing to explain and nothing to record.
-    if (downstream.kind === 'reject') return downstream
-
     const agentId = payload.agent.id
 
     /**
@@ -163,84 +177,114 @@ export function createSkillSuggestListener (deps: SkillSuggestDeps): PreStepList
       return true
     }
 
-    const settings = deps.settings()
-    if (!settings.enabled || !settings.suggest.enabled) {
-      noteSkip('disabled')
-      return downstream
-    }
+    /**
+     * Run every pre-check that does not depend on the step being allowed to run.
+     *
+     * Nothing here reaches the network, and nothing here writes a ledger row —
+     * the row is written only after the step is known to run, so a step someone
+     * else rejects is still not recorded as this capability declining.
+     *
+     * @param agentId - the agent whose turn this is.
+     * @returns what the pre-checks decided.
+     */
+    const openGate = async (agentId: string): Promise<Gate> => {
+      const settings = deps.settings()
+      if (!settings.enabled || !settings.suggest.enabled) return { kind: 'skip', reason: 'disabled' }
 
-    // The turn's own row already says what happened, so the latch hit is not
-    // recorded again — one `suggest` row per turn is the invariant.
-    if (judgedTurn.get(agentId) === payload.turn) return downstream
+      if (judgedTurn.get(agentId) === payload.turn) return { kind: 'latched' }
 
-    // Prefer the current ask over a window that may still hold the previous
-    // topic. This is a semantic choice, not an accuracy claim: a controlled
-    // rerun had the window dilute the distribution without changing the winner
-    // (see `MIN_LATEST_CHARS`). A latest message too short to carry signal still
-    // falls back to the window, so "继续" keeps whatever made it meaningful.
-    const latest = deps.cache.latest(agentId)
-    const task = latest !== undefined && latest.length >= MIN_LATEST_CHARS
-      ? latest
-      : deps.cache.task(agentId)
-    if (task === undefined || task.trim() === '') {
-      noteSkip('no-task')
-      return downstream
-    }
+      // Prefer the current ask over a window that may still hold the previous
+      // topic. This is a semantic choice, not an accuracy claim: a controlled
+      // rerun had the window dilute the distribution without changing the winner
+      // (see `MIN_LATEST_CHARS`). A latest message too short to carry signal still
+      // falls back to the window, so "继续" keeps whatever made it meaningful.
+      const latest = deps.cache.latest(agentId)
+      const task = latest !== undefined && latest.length >= MIN_LATEST_CHARS
+        ? latest
+        : deps.cache.task(agentId)
+      if (task === undefined || task.trim() === '') return { kind: 'skip', reason: 'no-task' }
 
-    const skills = deps.skills()
-    if (skills === undefined) {
-      // Structural, not per-turn: the registry is not in this plugin's scope, so
-      // the capability can never fire in this deployment. That deserves one host
-      // warning per mount — repeating it on every step is log spam, not diagnosis.
-      if (!warnedNoRegistry) {
-        warnedNoRegistry = true
-        deps.log?.('skills registry is not visible; suggestion can never fire')
+      const skills = deps.skills()
+      if (skills === undefined) {
+        // Structural, not per-turn: the registry is not in this plugin's scope, so
+        // the capability can never fire in this deployment. That deserves one host
+        // warning per mount — repeating it on every step is log spam, not diagnosis.
+        if (!warnedNoRegistry) {
+          warnedNoRegistry = true
+          deps.log?.('skills registry is not visible; suggestion can never fire')
+        }
+        return { kind: 'skip', reason: 'no-skills' }
       }
-      noteSkip('no-skills')
-      return downstream
-    }
 
-    let catalog
-    try {
-      // `scope` is not optional in practice. The registry reads the global layer
-      // alone when it is omitted, and a preset's skills register into that
-      // preset's layer, so an unscoped read reports a catalog the session does
-      // not have — small enough to fall under the size floor every single time.
-      // That is how this capability stayed silent in every session it ran in.
-      catalog = await skills.list({
-        scope: payload.agent,
-        cwd: payload.agent.session?.header?.cwd,
-      })
-    } catch (error) {
-      // Once per turn, not once per step: the same failure on every step of a
-      // long turn would otherwise repeat identically in the host log.
-      if (noteSkip('catalog-unavailable')) {
-        deps.log?.(`catalog unavailable: ${String(error)}`)
+      let catalog
+      try {
+        // `scope` is not optional in practice. The registry reads the global layer
+        // alone when it is omitted, and a preset's skills register into that
+        // preset's layer, so an unscoped read reports a catalog the session does
+        // not have — small enough to fall under the size floor every single time.
+        // That is how this capability stayed silent in every session it ran in.
+        catalog = await skills.list({
+          scope: payload.agent,
+          cwd: payload.agent.session?.header?.cwd,
+        })
+      } catch (error) {
+        // Once per turn, not once per step: the same failure on every step of a
+        // long turn would otherwise repeat identically in the host log.
+        return {
+          kind: 'skip',
+          reason: 'catalog-unavailable',
+          log: `catalog unavailable: ${String(error)}`,
+        }
       }
-      return downstream
-    }
-    if (catalog.length < settings.suggest.minCatalogSize) {
-      noteSkip('catalog-too-small')
-      return downstream
+      if (catalog.length < settings.suggest.minCatalogSize) {
+        return { kind: 'skip', reason: 'catalog-too-small' }
+      }
+
+      const apiKey = await resolveApiKey(deps.credentials(), settings.apiKeyEnv)
+      if (!apiKey.ok) return { kind: 'skip', reason: 'no-key', notify: true }
+
+      const grant = deps.budget.tryConsume(agentId, payload.turn)
+      if (!grant.ok) return { kind: 'skip', reason: grant.reason }
+
+      return {
+        kind: 'judge',
+        task,
+        catalog,
+        apiKey: apiKey.value,
+        model: settings.model,
+        minConfidence: settings.suggest.minConfidence,
+      }
     }
 
-    const apiKey = await resolveApiKey(deps.credentials(), settings.apiKeyEnv)
-    if (!apiKey.ok) {
-      deps.notices.note(agentId, 'no-key')
-      noteSkip('no-key')
-      return downstream
-    }
+    // Claim the turn's allowance before delegating. It is shared with the
+    // pruner, which lives downstream, and a listener's body runs in reverse
+    // registration order — so awaiting `next()` first let the pruner reach
+    // `tryConsume` ahead of this listener and spend the whole turn's allowance
+    // before the suggestion ever asked. A step that is rejected further down
+    // leaves this claim spent; reserving one slot in `prune.perTurnLimit` is
+    // what pays for that.
+    const gate = await openGate(agentId)
 
-    const grant = deps.budget.tryConsume(agentId, payload.turn)
-    if (!grant.ok) {
-      noteSkip(grant.reason)
+    // Delegate next. A later listener keeps the last word on whether the step
+    // runs, and a step that is about to be rejected costs no API request.
+    const downstream = await next()
+    // A rejected step is not this capability declining: the step itself is not
+    // going to run, so there is nothing to explain and nothing to record.
+    if (downstream.kind === 'reject') return downstream
+
+    // The latch hit writes no row: the turn's own row already says what happened,
+    // so one `suggest` row per turn stays the invariant.
+    if (gate.kind === 'latched') return downstream
+    if (gate.kind === 'skip') {
+      if (gate.notify === true) deps.notices.note(agentId, 'no-key')
+      if (noteSkip(gate.reason) && gate.log !== undefined) deps.log?.(gate.log)
       return downstream
     }
 
     // A Choice caps at 255 options; the catalog is far smaller in practice, but
     // the guard keeps a pathological deployment from producing a rejected
     // request.
-    const options = catalog.slice(0, 254)
+    const options = gate.catalog.slice(0, 254)
     // English on purpose: this text goes to the model, not to the reader, and
     // the vendor documents English as its strongest training language.
     const criteria: Record<string, string> = {
@@ -250,9 +294,9 @@ export function createSkillSuggestListener (deps: SkillSuggestDeps): PreStepList
       criteria[skill.name] = skill.description.slice(0, MAX_DESCRIPTION)
     }
 
-    const model = settings.model
+    const model = gate.model
     const request: JudgmentRequest = {
-      state: { task },
+      state: { task: gate.task },
       questions: {
         pick: {
           type: 'choice',
@@ -274,7 +318,7 @@ export function createSkillSuggestListener (deps: SkillSuggestDeps): PreStepList
     const started = deps.now()
     let judged
     try {
-      judged = await deps.backendFor(apiKey.value, model).judge(request, payload.signal)
+      judged = await deps.backendFor(gate.apiKey, model).judge(request, payload.signal)
     } catch (error) {
       const problem = error instanceof JevError ? error.problem : 'unknown'
       // One classification for both surfaces. These used to disagree: the notice
@@ -301,12 +345,12 @@ export function createSkillSuggestListener (deps: SkillSuggestDeps): PreStepList
 
     if (answer === undefined || answer.type !== 'choice') return downstream
     if (answer.choice === ABSTAIN) return downstream
-    if (answer.confidence < settings.suggest.minConfidence) return downstream
+    if (answer.confidence < gate.minConfidence) return downstream
     const chosen = options.find(skill => skill.name === answer.choice)
     if (chosen === undefined) return downstream
 
     // Rendered in the conversation's language, like every other output.
-    const lang = detectLang(task)
+    const lang = detectLang(gate.task)
     const probability = answer.confidence.toFixed(2)
     const summary = lang === 'zh'
       ? `${chosen.name}（原始概率 ${probability}，未标定）`

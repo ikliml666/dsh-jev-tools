@@ -15,6 +15,7 @@ import { createSkillSuggestListener } from '../lib/features/skill-suggest.js'
 import { createDegradeNotices } from '../lib/notify.js'
 import { resolveSettings } from '../lib/config.js'
 import { createBudget } from '../lib/budget.js'
+import type { Budget } from '../lib/budget.js'
 import { createMemoryLedger } from '../lib/ledger.js'
 import { createContextCache } from '../lib/context-cache.js'
 import { skipMessage } from '../lib/degrade.js'
@@ -49,6 +50,8 @@ function harness (options: {
   confidence?: number
   settings?: typeof SETTINGS
   throwOnJudge?: boolean
+  /** Replaces the default allowance, so a test can pin the per-turn size. */
+  budget?: Budget
   /** Captures the judgment request, so a test can assert what was actually sent. */
   onJudge?: (request: { state?: unknown }) => void
 } = {}) {
@@ -83,7 +86,7 @@ function harness (options: {
     // explicitly absent registry, which is a different code path.
     skills: () => ('skills' in options ? options.skills : CATALOG),
     cache,
-    budget: createBudget(3, 200),
+    budget: options.budget ?? createBudget(4, 200),
     ledger,
     notices,
     now: () => 1_000,
@@ -227,6 +230,24 @@ test('a downstream rejection is passed straight through, unjudged', async () => 
   assert.equal(calls(), 0)
 })
 
+test('claims the turn allowance before the downstream pruner can spend it', async () => {
+  // Listeners nest: this body runs, then `next()` runs the pruner. The per-turn
+  // allowance is shared, so claiming after `next()` let the pruner spend all four
+  // slots first and the suggestion never got one.
+  const budget = createBudget(4, 200)
+  const { listener, cache, calls } = harness({ budget })
+  cache.remember('agent-1', '帮我加一个导出功能')
+  let downstreamGrants = 0
+  const decision = await listener(payload(), async () => {
+    for (let i = 0; i < 4; i += 1) {
+      if (budget.tryConsume('agent-1', 1).ok) downstreamGrants += 1
+    }
+    return { kind: 'enter', messages: ORIGINAL }
+  })
+  assert.equal(calls(), 1, 'the suggestion must still be judged')
+  assert.equal(downstreamGrants, 3, 'one slot must already be claimed by the suggestion')
+  assert.equal(decision.kind, 'enter')
+})
 test('the notice is appended to what the downstream listener produced', async () => {
   const { listener, cache } = harness()
   cache.remember('agent-1', '帮我加一个导出功能')

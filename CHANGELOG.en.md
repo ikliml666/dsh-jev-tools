@@ -37,10 +37,22 @@ Published on npm: `npm i dsh-jev-tools`. It can also be installed from the repos
 - **The compatibility declaration gains 0.2.2-rc.2.** Both `dsh.compatibility.dshReleases` and `dshWorkshop.compatibility.dshVersions` now list `0.2.2-rc.2`, so the Plugins page and the Workshop manifest no longer treat it as an unverified older release.
 - **Injected messages now use the framework's standard `snapshot` source form.** The source used to be `{ kind: 'plugin:dsh-jev-tools', form: 'notice' }`, which the conversation rendered as `Context injection · plugin:dsh-jev-tools · implement (raw probability 0.46, uncalibrated)` — a `plugin:` prefix plus half a summary, reading like an internal log line rather than a context injection. `kind` is now the plugin's own name, `form` is `snapshot` with `sections`, matching `@deepseek-ai/dsh-frontend-design`'s `agent/pre-step` reminder, so the collapsed row reads `Context injection · dsh-jev-tools` and expands to the same notice text as before.
 
+- **`prune.perTurnLimit` defaults to 4, up from 3.** The per-turn allowance is shared by prune,
+  screen and suggest, and skill suggestion now claims one slot of it: it judges at most once per
+  turn, and the pruner keeps the three it always had. The cost at the cap moves from 0.9 s to
+  about 1.2 s in the worst turn.
+
 ### Fixed
 
 - **Mounting and registration were measured on 0.2.2-rc.2.** Mounted in an isolated profile on the 0.2.2-rc.2 source checkout, both tools (`jev_ask`, `jev_gate`) and the `/jev-status` command are present, and the ledger storage domain `dsh_jev_tools` opens; every host contract this plugin consumes (`agent/pre-step`'s injected `agent`, `tools/post-execute`'s `accept.content`, `tools.register`, `commands.register`, `skills.list`, `storageDomain.open`) is unchanged from 0.2.0-rc.2, with no breaking change found.
 - **Loading is restored: the missing piece was the mount row.** The plugin used to be installed yet run nothing, because the profile's `dsh.profile.bundles` did not list it — the package sat in `node_modules` and the config in `cordis.patch.yml`, but without a bundle row no code was loaded at all. Restoring it means adding the package name back to that list and pointing the dependency at a local `link:` to this checkout, so later edits actually reach the host.
+
+- **Skill suggestion could not get a turn allowance, so it almost never fired.** The
+  `agent/pre-step` listeners nest: this body runs first and the pruner only runs deep inside
+  `next()`, while the allowance used to be claimed after `next()` returned — with the pruner
+  spending all three, the suggestion had nothing left but `budget-turn`. The allowance is now
+  claimed before delegating; the judgment itself still waits until the step is known to run, so a
+  step another listener rejects is still unrecorded and costs no request, only the claimed slot.
 
 ## [0.1.13] — 2026-09-30
 

@@ -114,7 +114,7 @@ key 在 <https://console.typesafe.ai/keys> 申请。
 | `sessionCallLimit` | `200` | 每会话判定次数上限（所有能力合计，含 `jev_ask` / `jev_gate`）。三个自动能力另有每 turn 上限 |
 | `prune.enabled` | `true` | 启用工具结果精简 |
 | `prune.minTokens` | `2000` | 低于此估算 token 数不做判定 |
-| `prune.perTurnLimit` | `3` | 每 turn 判定上限，**prune / screen / suggest 三者共享**——名字带 `prune.`，但 `jev_ask` / `jev_gate` 是显式调用、不受它限制。实测：不限时最坏一个 turn 触发 27 次 ≈ 8.1 秒，限 3 次后最坏 0.9 秒 |
+| `prune.perTurnLimit` | `4` | 每 turn 判定上限，**prune / screen / suggest 三者共享**——名字带 `prune.`，但 `jev_ask` / `jev_gate` 是显式调用、不受它限制。实测：不限时最坏一个 turn 触发 27 次 ≈ 8.1 秒，限 4 次后最坏约 1.2 秒；第 4 格留给技能推荐，它先于剪枝申请额度 |
 | `prune.toolAllowlist` | `read` `grep` `glob` `web_fetch` `web_search` | **刻意不含 `pwsh`**——终端输出里的「无关」内容往往正是排查所需 |
 | `prune.minTaskChars` | `12` | 当前任务文本过短时放弃 |
 | `prune.shadow` | `false` | 试运行：照常判定与记账，但不改动任何内容 |
@@ -178,7 +178,7 @@ npm run measure -- samples.jsonl # 有标注（{p, y}）的数据：准确率、
 
 ```bash
 npm install --cache .npm-cache   # 依赖极少
-npm test                         # 先构建，再跑 263 个测试（node --test，无测试框架依赖）
+npm test                         # 先构建，再跑 264 个测试（node --test，无测试框架依赖）
 node scripts/check-tarball.mjs   # 断言发布包里既没有本机状态、也不缺该有的文件（CI 与发布前都跑）
 node scripts/release-notes.ts 0.1.8  # 预览某个版本的 GitHub Release 正文（发布时由 workflow 调用）
 npm run trigger-rate             # 从本地会话日志统计触发率，无需 key、无网络

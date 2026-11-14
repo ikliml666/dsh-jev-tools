@@ -100,7 +100,12 @@ function pairs (): Pair[] {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === 'lib' || entry.name === '.npm-cache') continue
+        // `.agents` holds DSH-managed worktrees: full checkouts of this repository,
+        // ignored wholesale by `.agents/worktrees/.gitignore`. Walking into one
+        // compares a stale copy against this checkout's documents, so every edit
+        // here would turn that copy red.
+        const skipped = ['node_modules', 'lib', '.npm-cache', '.agents']
+        if (skipped.includes(entry.name)) continue
         walk(full)
         continue
       }

@@ -114,7 +114,7 @@ Every row can be set in the `config:` block of the bundle row; the settings card
 | `sessionCallLimit` | `200` | Judgment calls per session, all capabilities combined, `jev_ask` and `jev_gate` included. The three automatic capabilities also carry a per-turn ceiling |
 | `prune.enabled` | `true` | Enable tool-result pruning |
 | `prune.minTokens` | `2000` | Below this estimated token count, nothing is judged |
-| `prune.perTurnLimit` | `3` | Calls per turn, **shared by prune, screen and suggest** — the name carries `prune.`, but `jev_ask` and `jev_gate` are explicit calls and are not bounded by it. Measured: uncapped, the worst turn fired 27 times ≈ 8.1 s; capped at 3, the worst is 0.9 s |
+| `prune.perTurnLimit` | `4` | Calls per turn, **shared by prune, screen and suggest** — the name carries `prune.`, but `jev_ask` and `jev_gate` are explicit calls and are not bounded by it. Measured: uncapped, the worst turn fired 27 times ≈ 8.1 s; capped at 4, the worst is ~1.2 s. The fourth slot is what skill suggestion claims before the pruner reaches the allowance |
 | `prune.toolAllowlist` | `read` `grep` `glob` `web_fetch` `web_search` | **`pwsh` is deliberately absent** — the "irrelevant" part of terminal output is often what you need |
 | `prune.minTaskChars` | `12` | Gives up when the request text is too short |
 | `prune.shadow` | `false` | Shadow mode: judge and record as normal, change nothing |
@@ -178,7 +178,7 @@ The plugin follows your language in both directions with no configuration: the s
 
 ```bash
 npm install --cache .npm-cache   # very few dependencies
-npm test                         # builds first, then runs 263 tests (node --test, no test framework)
+npm test                         # builds first, then runs 264 tests (node --test, no test framework)
 node scripts/check-tarball.mjs   # asserts the published tarball carries no local state and nothing is missing
 node scripts/release-notes.ts 0.1.8  # preview a version's GitHub Release body (the workflow calls this on release)
 npm run trigger-rate             # trigger rates from local session logs — no key, no network

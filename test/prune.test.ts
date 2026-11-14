@@ -498,9 +498,10 @@ test('per-turn quota stops further judgments in the same turn', async () => {
   const { listener, cache, ledger, judgeCalls } = harness()
   cache.remember('agent-1', 'fix the parser bug')
   cache.rememberTurn('agent-1', 1)
-  // The default per-turn ceiling is 3. Each payload differs in size, so the
-  // memo cannot absorb any of them and every call reaches the quota check.
-  for (let i = 0; i < 4; i += 1) {
+  // The default per-turn ceiling is the configured one. Each payload differs in
+  // size, so the memo cannot absorb any of them and every call reaches the
+  // quota check.
+  for (let i = 0; i <= SETTINGS.prune.perTurnLimit; i += 1) {
     const content = [{ type: 'text', text: payload(30 + i * 5) }]
     await listener(EXEC, { isError: false, content }, accept)
   }

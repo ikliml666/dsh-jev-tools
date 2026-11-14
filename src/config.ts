@@ -184,8 +184,8 @@ export const Config = Schema.object({
       .description('自动剪掉工具结果中与当前任务无关的部分。'),
     minTokens: Schema.number().default(2000)
       .description('只判定超过这个估算 token 数的工具结果。实测：2000 可省下约 32% 的工具结果 token，同时避开"省得少却照样花 300ms"的边际区间。'),
-    perTurnLimit: Schema.number().default(3)
-      .description('单个 turn 内的剪枝次数上限。实测：不设上限时最坏一个 turn 会触发 27 次（约 8.1 秒）；限 3 次后最坏 0.9 秒。'),
+    perTurnLimit: Schema.number().default(4)
+      .description('单个 turn 内的判定次数上限，prune / screen / suggest 三者共享。实测：不设上限时最坏一个 turn 会触发 27 次（约 8.1 秒）；限 4 次后最坏约 1.2 秒。第 4 格是留给技能推荐的——它现在先于剪枝申请额度，并被下游可能拒绝的 step 白占一格。'),
     toolAllowlist: Schema.array(Schema.string()).default([...DEFAULT_TOOL_ALLOWLIST])
       .description('参与剪枝的工具白名单。刻意不含 pwsh——终端输出里的"无关"内容往往是排查所需。'),
     headLines: Schema.number().default(40)
